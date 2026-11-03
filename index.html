@@ -878,7 +878,9 @@
                         finalPayoutIdx = cols.length - 1;
                     }
 
-                    const id = cols[finalLinkIdx] || `Link-${cat}-${idx}`;
+                    const id = String(
+                        cols[finalLinkIdx] || `Link-${cat}-${idx}`
+                    ).trim().toUpperCase();
                     const countryRaw = cols[finalCountryIdx] || "Unknown";
                     const countryCode = countryRaw.toString().trim().substring(0,2).toUpperCase();
                     const payout = parsePayout(cols[finalPayoutIdx]);
@@ -920,9 +922,46 @@
             document.getElementById('errorMsg').style.display = 'block';
         }
     }
+    function mergeDuplicateSmartlinkIds() {
+    const merged = new Map();
 
+    processedData.forEach(item => {
+        const normalizedId = String(item.id || '').trim().toUpperCase();
+        const key = `${item.category}::${normalizedId}`;
+
+        if (!merged.has(key)) {
+            merged.set(key, {
+                ...item,
+                id: normalizedId,
+                countries: { ...(item.countries || {}) }
+            });
+            return;
+        }
+
+        const existing = merged.get(key);
+
+        existing.count += item.count || 0;
+        existing.totalPayoutUSD += item.totalPayoutUSD || 0;
+
+        Object.entries(item.countries || {}).forEach(([code, data]) => {
+            if (!existing.countries[code]) {
+                existing.countries[code] = {
+                    count: 0,
+                    totalUSD: 0
+                };
+            }
+
+            existing.countries[code].count += data.count || 0;
+            existing.countries[code].totalUSD += data.totalUSD || 0;
+        });
+    });
+
+    processedData = Array.from(merged.values());
+}
     function recalculateAll() {
-        if (!processedData.length) return;
+    if (!processedData.length) return;
+
+    mergeDuplicateSmartlinkIds();
         const rate = parseFloat(document.getElementById('usdRate').value) || 0;
         const adminPercent = parseFloat(document.getElementById('adminFee').value) || 0;
 
